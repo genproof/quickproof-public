@@ -1,0 +1,10 @@
+Makefile.coq*
+.Makefile.coq.d
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
+.lia.cache
+__pycache__/
+tools/site.conf

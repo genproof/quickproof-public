@@ -1,0 +1,24 @@
+name: Bug in qp or the framework
+description: A qp command, a script or a part of the Coq library does the wrong thing.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, what it printed, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest steps that show the problem. A harness or a project directory helps; one of examples/ is best.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: The QuickProof commit or release, and your toolchain and system.
+      placeholder: QuickProof v0.1.0, Coq 8.20.1, CompCert 3.15, VST 2.15, gcc 13.3, Ubuntu 24.04

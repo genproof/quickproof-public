@@ -1,0 +1,17 @@
+tests/svcomp: SV-COMP tasks for tests/qp/svcomp.sh, in the layout of sv-benchmarks (c/DIRECTORY/TASK.yml).
+
+Written for these tests (Copyright 2026 GenProof, PolyForm Noncommercial 1.0.0):
+  c/quickproof/*
+
+Copied unchanged from sv-benchmarks (https://gitlab.com/sosy-lab/benchmarking/sv-benchmarks), commit c7d7c3ef
+(the Apache License 2.0 text is tests/LICENSE-Apache-2.0.txt):
+  c/properties/{unreach-call,valid-memsafety,valid-memcleanup,no-overflow,termination,coverage-branches}.prp
+      Apache-2.0, SPDX-FileCopyrightText: 2011-2020 The SV-Benchmarks Community (the .prp.license file next to each)
+  c/loop-invariants64/linear-inequality-inv-d.c
+      Apache-2.0, SPDX-FileCopyrightText: 2022 Dirk Beyer, Matthias Dangl, Daniel Dietsch, Matthias Heizmann,
+      Thomas Lemberger, and Michael Tautschnig (the header of the file)
+  c/Juliet_Test/CWE415_Double_Free---s01---CWE415_Double_Free__malloc_free_int_03_bad.i
+      CC0-1.0, SPDX-FileCopyrightText: 2010-2020 NIST, 2020 The SV-Benchmarks Community (the header of the file)
+  c/loop-invariants64/linear-inequality-inv-d.yml
+  c/Juliet_Test/CWE415_Double_Free---s01---CWE415_Double_Free__malloc_free_int_03_bad.yml
+      CC0-1.0, 2011-2020 The SV-Benchmarks Community (sv-benchmarks .reuse/dep5: c/*/*.yml)

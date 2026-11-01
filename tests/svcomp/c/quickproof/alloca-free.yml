@@ -1,0 +1,13 @@
+format_version: '2.0'
+
+# A test task of tools/qp import-svcomp (tests/qp/svcomp.sh).
+input_files: 'alloca-free.c'
+
+properties:
+  - property_file: ../properties/valid-memsafety.prp
+    expected_verdict: false
+    subproperty: valid-free
+
+options:
+  language: C
+  data_model: LP64

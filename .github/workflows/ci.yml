@@ -1,0 +1,65 @@
+# The framework's checks, in the toolchain image (docker/toolchain.Dockerfile, target ci, pushed by
+# toolchain.yml): the Coq library and the tests (tests/run.sh: tests/qp.sh, and `tools/qp examples` at the end),
+# and the examples with their qp verify reports.
+# No cache: the Coq library builds in under a minute, and the tests and examples build everything else afresh
+# by design.  The jobs run on ubuntu-latest, or on the runners whose labels the repository variable QP_RUNS_ON
+# lists as JSON, e.g. ["self-hosted", "linux", "x64"] (Linux with Docker).
+name: ci
+
+# Changes to the documentation alone do not run the checks: the tests read none of it (CHANGELOG.md they do read).
+on:
+  push:
+    branches: [main, release]
+    paths-ignore: ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'docs/**']
+  pull_request:
+    branches: [main, release]
+    paths-ignore: ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+# A new push to a pull request cancels the run for the old one.  Runs for pushes to a branch are never
+# cancelled: a cancelled run counts as a failure on the status badge.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    runs-on: ${{ fromJSON(vars.QP_RUNS_ON || '["ubuntu-latest"]') }}
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/genproof/quickproof-toolchain:8.20.1-ci
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trust the checkout (the container runs as root, the checkout belongs to the runner's user)
+        run: git config --global --add safe.directory '*'
+      - name: Build coq/
+        working-directory: coq
+        run: coq_makefile -f _CoqProject -o Makefile.coq && nice make -f Makefile.coq -j"$(nproc)"
+      - name: tests/run.sh
+        run: nice bash tests/run.sh
+
+  examples:
+    runs-on: ${{ fromJSON(vars.QP_RUNS_ON || '["ubuntu-latest"]') }}
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/genproof/quickproof-toolchain:8.20.1-ci
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trust the checkout (the container runs as root, the checkout belongs to the runner's user)
+        run: git config --global --add safe.directory '*'
+      - name: tools/qp examples
+        run: nice tools/qp examples

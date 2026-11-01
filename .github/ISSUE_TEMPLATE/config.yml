@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security or soundness problem privately
+    url: https://github.com/genproof/quickproof-public/security/policy
+    about: For a problem that could make a false result look proved. Please do not open a public issue for it.
+  - name: Vote for the next library to prove
+    url: https://genproof.com/quickproof/next
+    about: Vote for a library, propose one or a property of it, or claim a project you maintain.

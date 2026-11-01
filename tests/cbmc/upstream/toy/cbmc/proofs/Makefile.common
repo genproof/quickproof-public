@@ -1,0 +1,22 @@
+# A small Makefile.common in the style of the cbmc-starter-kit (tests/qp/cbmc.sh); the real one is much longer.
+sinclude $(PROOF_ROOT)/Makefile-project-defines
+sinclude $(PROOF_ROOT)/Makefile-template-defines
+
+HARNESS_ENTRY ?= harness
+HARNESS_FILE ?= $(PROOFDIR)/$(PROOF_UID)_harness.c
+
+CBMC_FLAG_MALLOC_MAY_FAIL ?= # set to --no-malloc-may-fail to disable
+CBMC_FLAG_CONVERSION_CHECK ?= --conversion-check
+CBMC_FLAG_UNSIGNED_OVERFLOW_CHECK ?= --unsigned-overflow-check
+CBMC_FLAG_POINTER_OVERFLOW_CHECK ?= --pointer-overflow-check
+CBMC_FLAG_UNWINDING_ASSERTIONS ?= # set to --no-unwinding-assertions to disable
+CHECKFLAGS += $(CBMC_FLAG_CONVERSION_CHECK)
+CHECKFLAGS += $(CBMC_FLAG_UNSIGNED_OVERFLOW_CHECK)
+CHECKFLAGS += $(CBMC_FLAG_POINTER_OVERFLOW_CHECK)
+
+DEFINES += -DCBMC=1
+INCLUDES ?=
+DEFINES ?=
+
+goto:
+	echo never run

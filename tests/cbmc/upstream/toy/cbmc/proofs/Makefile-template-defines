@@ -1,0 +1,2 @@
+# The toy proof tree: SRCDIR is two levels above the proof root (toy/).
+SRCDIR ?= $(abspath $(PROOF_ROOT)/../..)

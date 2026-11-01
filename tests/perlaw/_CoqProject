@@ -1,0 +1,5 @@
+-Q quickproof/coq/QuickProof QuickProof
+-R src Toy
+-R proof Toy.proof
+src
+proof

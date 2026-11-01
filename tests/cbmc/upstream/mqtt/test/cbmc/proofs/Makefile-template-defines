@@ -1,0 +1,2 @@
+# The cbmc-starter-kit's definition (coreMQTT: test/cbmc/proofs is three levels below the root).
+SRCDIR ?= $(abspath $(PROOF_ROOT)/../../..)

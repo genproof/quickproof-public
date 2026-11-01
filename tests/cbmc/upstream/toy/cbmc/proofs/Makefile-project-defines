@@ -1,0 +1,16 @@
+# Project-wide settings of the toy proofs.
+INCLUDES += -I$(SRCDIR)/src
+INCLUDES += -I$(CBMC_ROOT)/include
+
+# TOY_CONFIG configures the library (project-wide); TOY_HARNESS_ONLY only the harness code (law-local).
+DEFINES += -DTOY_CONFIG=1
+DEFINES += -DTOY_HARNESS_ONLY="(1 + 1)"
+
+PROOF_SOURCES += $(PROOF_STUB)/abort_override.c
+REMOVE_FUNCTION_BODY += abort
+
+# never run by the importer
+LITANI ?= $(shell which litani)
+ifneq ($(shell which kissat),)
+  DEFINES += -DSHOULD_NOT_APPEAR=1
+endif

@@ -1,0 +1,2 @@
+# Preprocessed C inputs of the SV-COMP importer tests (GitHub would count them as SWIG).
+*.i linguist-language=C

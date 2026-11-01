@@ -1,0 +1,24 @@
+// .devcontainer/devcontainer.json: prove by hand in VS Code (or GitHub Codespaces) with coq-lsp, in the
+// QuickProof image (docs/DOCKER.md).  Put this file into .devcontainer/ of the directory that holds your
+// QuickProof projects (the one you mount on /work otherwise), then run "Dev Containers: Reopen in Container".
+// In the container's terminal the qpdemo commands work as usual (qpdemo new, check, contract, build, verify).
+// Open a proof repository as a folder of its own (File > Open Folder > /work/NAME-proof), so that coq-lsp finds
+// its _CoqProject, and run `qpdemo build NAME` once first, so that the files a proof imports are compiled.
+{
+  "name": "QuickProof",
+  "image": "ghcr.io/genproof/quickproof:latest",
+  "overrideCommand": true,
+  "remoteUser": "opam",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/work,type=bind",
+  "workspaceFolder": "/work",
+  "containerEnv": { "QP_WORK": "/work" },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ejgallego.coq-lsp"],
+      "settings": {
+        "coq-lsp.path": "/home/opam/.opam/4.14/bin/coq-lsp",
+        "files.exclude": { "**/*.vo": true, "**/*.vok": true, "**/*.vos": true, "**/*.glob": true, "**/.*.aux": true }
+      }
+    }
+  }
+}

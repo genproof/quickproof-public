@@ -1,0 +1,13 @@
+# A small Makefile.common in the style of aws-c-common's, written for tests/qp/cbmc.sh.
+sinclude $(PROOF_ROOT)/Makefile-project-defines
+sinclude $(PROOF_ROOT)/Makefile-template-defines
+PROOF_SOURCE ?= $(CBMC_ROOT)/sources
+PROOF_STUB ?= $(CBMC_ROOT)/stubs
+CBMC_FLAG_CONVERSION_CHECK ?= --conversion-check
+CBMC_FLAG_UNSIGNED_OVERFLOW_CHECK ?= --unsigned-overflow-check
+CHECKFLAGS += $(CBMC_FLAG_CONVERSION_CHECK)
+CHECKFLAGS += $(CBMC_FLAG_UNSIGNED_OVERFLOW_CHECK)
+CBMC_OBJECT_BITS ?= 8
+DEFINES += -DCBMC=1
+DEFINES += -DCBMC_OBJECT_BITS=$(CBMC_OBJECT_BITS)
+DEFINES += -DCBMC_MAX_OBJECT_SIZE="(SIZE_MAX>>(CBMC_OBJECT_BITS+1))"

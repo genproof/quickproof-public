@@ -1,0 +1,394 @@
+#!/usr/bin/env bash
+# qpdemo: the entry point of the QuickProof image (docker/quickstart.Dockerfile, docs/DOCKER.md).  Every command
+# is a thin layer over tools/qp.
+set -euo pipefail
+
+X=/opt/qp-examples                 # the shipped examples (make-examples.sh): ws/, upstream/, repos/; history/ (bug)
+W=${QP_WORK:-/work}                # your own projects: $W/projects/NAME, $W/NAME-src (the code), $W/NAME-proof
+Q=$(dirname "$(readlink -f "$0")")   # docker/quickstart/ of the framework: prove.py, templates/
+T=$Q/templates
+export QP_SITE_CONF=/dev/null DEBUGINFOD_URLS= GIT_TERMINAL_PROMPT=0
+export QP_JOBS=${QP_JOBS:-$(( $(nproc) > 1 ? $(nproc) / 2 : 1 ))}
+G=(git -c user.name=qpdemo -c user.email=qpdemo@quickproof.invalid -c init.defaultBranch=main -c advice.detachedHead=false)
+# A container run as another user id (docker run --user) cannot write the image's cache: use one in /tmp.
+if ! { mkdir -p "${QP_CACHE:=$HOME/.cache/quickproof}" && [ -w "$QP_CACHE" ]; } 2>/dev/null; then
+  QP_CACHE=/tmp/quickproof-cache; mkdir -p "$QP_CACHE"
+fi
+export QP_CACHE
+
+if [ -t 1 ]; then B=$'\e[1m'; OK=$'\e[32m'; BAD=$'\e[31m'; N=$'\e[0m'; else B=; OK=; BAD=; N=; fi
+say() { printf '%s\n' "$*"; }
+hdr() { printf '\n%s== %s%s\n' "$B" "$*" "$N"; }
+die() { printf 'qpdemo: %s\n' "$*" >&2; exit 2; }
+secs() { local s=$1; printf '%dm%02ds' $((s / 60)) $((s % 60)); }
+
+examples() { for d in "$X"/repos/*/; do basename "$d"; done; }
+is_example() { [ -d "$X/repos/$1" ]; }
+law_files() { ls "$1"/harness/*.c 2>/dev/null; }
+claim() {   # the first comment of a harness, on one line
+  python3 - "$1" <<'EOF'
+import re, sys
+s = open(sys.argv[1]).read()
+m = re.match(r'\s*((?://[^\n]*\n\s*)+|/\*.*?\*/)', s, re.S)
+t = re.sub(r'^\s*(//|/\*+|\*/|\*)', '', m.group(1) if m else '', flags=re.M)
+t = ' '.join(l.strip() for l in re.sub(r'\*/\s*$', '', t).split('\n') if l.strip())
+print(re.sub(r'^(Harness|Law)(\s+\w+)?\s*:\s*', '', t))
+EOF
+}
+theorems() { grep -h '^Theorem .*: harness_safe ' "$1"/src/contracts/*.v 2>/dev/null | sed 's/ *Proof\..*//'; }
+
+usage() {
+  cat <<EOF
+${B}QuickProof quickstart${N}: properties of C code, written as harnesses, proved for every input they allow.
+Toolchain: $(coqc --version | head -1 | sed 's/The //'), CompCert $(ccomp -version 2>&1 | grep -o '[0-9][0-9.]*' | head -1), VST 2.15.
+
+See a proof checked (a minute or two each):
+  qpdemo list                  the shipped examples and their properties
+  qpdemo show EXAMPLE          the property (a C harness), the code, and the theorem
+  qpdemo verify EXAMPLE|all    rebuild a shipped proof from scratch and check it, as qp verify does
+  qpdemo bug                   a new release breaks a property: native runs find the input in seconds
+
+Prove something of your own (mount a directory on /work to keep it):
+  qpdemo new NAME              a project in /work: your code (NAME-src/) and a first property (projects/NAME/harness/)
+  qpdemo check NAME            the checks before proving: native runs with sanitizers, CompCert's interpreter,
+                               mutants of your code (does the property notice a broken function?)
+  qpdemo contract NAME         the proving repository NAME-proof/: the exact theorem of each property, and AGENTS.md
+  qpdemo build NAME            compile your proof and list what is still Admitted
+  qpdemo verify NAME           the acceptance check of your proof (PASS: proved, nothing admitted)
+
+Let an AI agent write the proof (\`qpdemo agent\` explains the three ways):
+  qpdemo agent setup           install Claude Code from Anthropic into ~/.local (asks first; put a volume there)
+  qpdemo agent login           sign in with your Claude subscription (or pass -e ANTHROPIC_API_KEY)
+  qpdemo prove NAME|LAW        run Claude Code on the proof until qp verify passes or the budget ends
+  qpdemo serve                 keep the container running for an agent on the host (MCP: docker exec -i C rocq-mcp)
+
+Anything else runs as a command, e.g. \`qpdemo bash\`, \`qpdemo qp --help\`, \`qpdemo coqc --version\`.
+Licenses: QuickProof PolyForm-Noncommercial-1.0.0 (/opt/quickproof/LICENSE); Coq LGPL-2.1; VST BSD-2-Clause;
+rocq-mcp Apache-2.0; CompCert INRIA Non-Commercial License (educational, research and evaluation use only).  The
+texts of the others: /usr/share/doc/quickproof-toolchain.
+No AI agent is included in this image.
+EOF
+}
+
+cmd_list() {
+  for e in $(examples); do
+    say "${B}$e${N}"
+    for h in $(law_files "$X/ws/projects/$e"); do
+      say "  $(basename "$h" .c): $(claim "$h")"
+    done
+  done
+  say ""
+  say "${B}rle2${N} (no proof: the property is false)"
+  say "  rle_decode_safe on rle 2.0: see qpdemo bug"
+}
+
+cmd_show() {
+  local e=${1:?usage: qpdemo show EXAMPLE}
+  local p=$X/ws/projects/$e r=$X/repos/$e
+  [ -d "$p" ] || p=$W/projects/$e
+  [ -d "$p" ] || die "no example or project $e (qpdemo list)"
+  [ -d "$r" ] || r=$W/$e-proof
+  for h in $(law_files "$p"); do hdr "the property: harness/$(basename "$h")"; cat "$h"; done
+  if [ -d "$r" ]; then
+    hdr "the code under test"
+    for f in $(cd "$r" && git ls-files '*.c' '*.h' | grep -v -e '^harness/' -e '^quickproof/'); do say "--- $f"; cat "$r/$f"; done
+    hdr "the theorem (src/contracts/)"
+    theorems "$r"
+    say ""
+    say "harness_safe whole_prog: no run of the harness linked with the code has undefined behaviour, for"
+    say "every value the nondet_* calls may return.  A failing qp_assert is undefined behaviour."
+    local pf; pf=$(cd "$r" && git diff --name-only contract HEAD -- src 2>/dev/null | tr '\n' ' ')
+    [ -n "$pf" ] && say "the proof: $pf(in $r)"
+  fi
+}
+
+verify_repo() {   # verify_repo REPO: qp verify --brief.  Its progress (stderr) shows as it goes, it names the
+                  # repository, and its verdict stands.  On a FAIL it prints the full report.
+  qp verify --brief "$1"
+}
+
+cmd_verify() {
+  local e=${1:?usage: qpdemo verify EXAMPLE|all|NAME}
+  if [ "$e" = all ]; then
+    local fails=0
+    local first=1
+    for x in $(examples); do
+      [ $first = 1 ] || say ""; first=0
+      verify_repo "$X/repos/$x" || fails=$((fails + 1))
+    done
+    return $fails
+  fi
+  if is_example "$e"; then verify_repo "$X/repos/$e"; return; fi
+  local r=$W/$e-proof
+  [ -d "$r/.git" ] || die "no example $e and no proving repository $r (qpdemo contract $e)"
+  if [ -n "$(git -C "$r" status --porcelain -- src)" ]; then
+    "${G[@]}" -C "$r" add -A src && "${G[@]}" -C "$r" commit -q -m "proof (work in progress, committed by qpdemo verify)"
+    say "(committed your changes under src/ in $r: qp verify checks a commit)"
+  fi
+  verify_repo "$r"
+}
+
+cmd_bug() {
+  say "${B}== rle 2.0 has a \"simpler loop\" (rle.c)${N}"
+  git -C "$X/history/rle" diff v1.0 v2.0 -- rle.c | grep -E '^[-+][^-+]'
+  hdr "the property of rle 1.0, run natively on rle 2.0 under ASan and UBSan"
+  (cd "$X/ws" && qp fuzz rle2 -n 300) | tee /tmp/qpdemo-bug.log || true
+  local seed; seed=$(grep -o 'first: seed [0-9]*' /tmp/qpdemo-bug.log | grep -o '[0-9]*$' || true)
+  [ -n "$seed" ] || { say "no failing input found this time"; return 0; }
+  hdr "the first failing input (seed $seed), replayed"
+  local t; t=$(mktemp -d)
+  (cd "$X/ws" && qp tree rle2 --out "$t/tree" > /dev/null)
+  ( cd "$t/tree"
+    SAN=(-fsanitize=address,undefined -fno-sanitize-recover=all)
+    gcc -O0 -g -w "${SAN[@]}" -fno-delete-null-pointer-checks -Iquickproof/include -I. -Dmain=harness_main \
+        -c harness/rle_decode_safe.c -o h.o
+    gcc -O1 -g -w "${SAN[@]}" -I. -c rle.c -o rle.o
+    gcc -O1 -g -w "${SAN[@]}" -c quickproof/runtime/fuzz_driver.c -o d.o
+    gcc "${SAN[@]}" h.o rle.o d.o -o law
+    # the sanitizer's first line, the access and the frame where it happens
+    ASAN_OPTIONS=detect_leaks=0:abort_on_error=1 ./law 1 "$seed" 0 10 2>&1 \
+      | grep -E -m 3 'ERROR: AddressSanitizer|^(READ|WRITE) of size|^ +#0 ' \
+      | sed -e 's/ at pc 0x.*//' -e "s|$t/tree/||" ) || true
+  rm -rf "$t"
+  say ""
+  say "The property is false on rle 2.0: for an input of odd length the loop reads in[n], one byte past"
+  say "the buffer, so no proof can be finished.  The native runs found the input in seconds."
+}
+
+user_project() { [ -d "$W/projects/$1" ] || die "no project $1 in $W (qpdemo new $1)"; }
+
+sync_upstream() {   # commit edits of $W/NAME-src and pin the project to that commit
+  local n=$1 s=$W/$1-src
+  [ -d "$s/.git" ] || return 0
+  if [ -n "$(git -C "$s" status --porcelain)" ]; then
+    "${G[@]}" -C "$s" add -A && "${G[@]}" -C "$s" commit -q -m "edit (committed by qpdemo)"
+  fi
+  local c; c=$(git -C "$s" rev-parse HEAD)
+  sed -i "s|^COMMIT=.*|COMMIT=$c   # HEAD of $n-src (set by qpdemo)|" "$W/projects/$n/project.conf"
+}
+
+cmd_new() {
+  local n=${1:?usage: qpdemo new NAME}
+  [[ $n =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || die "NAME: a letter, then letters, digits or _"
+  [ ! -e "$W/projects/$n" ] && [ ! -e "$W/$n-src" ] || die "$W/projects/$n or $W/$n-src exists"
+  mkdir -p "$W/projects" "$W/$n-src"
+  cp "$T"/lib/* "$W/$n-src/"
+  (cd "$W/$n-src" && "${G[@]}" init -q && "${G[@]}" add -A && "${G[@]}" commit -q -m "$n 0.1" && "${G[@]}" tag v0.1)
+  (cd "$W" && qp --workspace "$W" new "$n" "$W/$n-src" > /dev/null)
+  local p=$W/projects/$n
+  sed -i 's|^UPSTREAM=.*|UPSTREAM=../../'"$n"'-src|' "$p/project.conf"
+  sed -i 's|^#  "\(.*\.c=src/.*\)"|  "\1"|' "$p/quickproof.conf"
+  cp "$T"/harness/*.c "$p/harness/"
+  cat <<EOF
+created the project $n:
+  $W/$n-src/                  your code (an example to replace: count_byte in mylib.c)
+  $W/projects/$n/harness/     your properties, one C file each (an example: count_byte_ok.c)
+  $W/projects/$n/quickproof.conf   which .c files are compiled (UNITS)
+
+next:
+  qpdemo check $n       run the property natively, under CompCert's interpreter, and against mutants of your code
+  qpdemo contract $n    get the theorem to prove
+EOF
+}
+
+cmd_check() {
+  local n=${1:?usage: qpdemo check NAME|EXAMPLE}; shift
+  local ws=$W
+  if is_example "$n" || [ "$n" = rle2 ]; then ws=$X/ws; else user_project "$n"; sync_upstream "$n"; fi
+  hdr "qp lint and audit: constructs VST cannot prove (goto, struct copies, builtins, ...)"
+  (cd "$ws" && qp lint "$n" && qp audit "$n") || say "${BAD}fix the blockers above first${N}"
+  hdr "qp check: native runs (ASan/UBSan), CompCert's interpreter, mutants"
+  (cd "$ws" && qp check "$n" -n "${QP_RUNS:-1000}" --interp-runs 5 --mutant-runs 200 -k 12 --timeout 60 "$@") \
+    | grep -v '^mutant ' || true
+  say ""
+  say "report: $ws/projects/$n/CHECK.md"
+}
+
+cmd_contract() {
+  local n=${1:?usage: qpdemo contract NAME}
+  user_project "$n"; sync_upstream "$n"
+  local r=$W/$n-proof
+  [ ! -e "$r" ] || die "$r exists (remove it to start again)"
+  (cd "$W" && qp --workspace "$W" assemble "$n" "$r" --templates "$T/repo" > /dev/null)
+  hdr "the proving repository $r (git; tag \`contract\`)"
+  say "the theorems to prove, one per property, now Admitted:"
+  theorems "$r" | sed 's/^/  /'
+  say ""
+  say "frozen: the code, the harnesses, the framework (quickproof/), the generated Clight (src/**/code.v)."
+  say "yours:  any Coq file under src/ (e.g. src/proof/), and the proof part of src/contracts/*.v."
+  say "the brief for an agent (or for you): $r/AGENTS.md;  worked examples: $r/quickproof/examples/"
+  say ""
+  say "next: write the proof (by hand, with qpdemo prove $n, or with your own agent: qpdemo agent),"
+  say "      then qpdemo build $n and qpdemo verify $n"
+}
+
+cmd_build() {
+  local n=${1:?usage: qpdemo build NAME}
+  local r=$W/$n-proof log=/tmp/qpdemo-build-$$.log
+  [ -d "$r" ] || die "no $r (qpdemo contract $n)"
+  cd "$r"
+  coq_makefile -f _CoqProject -o CoqMakefile > /dev/null 2>&1
+  local t0; t0=$(date +%s)
+  if make -f CoqMakefile -j"${QP_BUILD_JOBS:-4}" 2>&1 | grep -v -e 'notation-incompatible' -e 'Notations "' -e 'have incompatible prefixes' \
+       -e 'One of them will likely' -e 'at next level' -e '^with arguments' -e '^constr ' -e 'characters 0-3[0-9]:$' \
+       > "$log"; [ "${PIPESTATUS[0]}" = 0 ]; then
+    say "${OK}built${N} in $(secs $(( $(date +%s) - t0 )))"
+  else
+    tail -30 "$log"; cp "$log" /tmp/qpdemo-build.log; rm -f "$log"
+    say "${BAD}build failed${N} (log: /tmp/qpdemo-build.log)"; return 1
+  fi
+  rm -f "$log"
+  local adm; adm=$(grep -rnE '^\s*(Admitted|admit)\b|\badmit\.' src --include=*.v || true)
+  if [ -n "$adm" ]; then say "still admitted:"; say "$adm" | sed 's/^/  /'; else say "nothing admitted: run qpdemo verify $n"; fi
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# AI agents.  None is shipped: Claude Code comes from Anthropic's installer, at the user's request, into ~/.local
+# (a volume, so that it stays); CLAUDE_CONFIG_DIR (set by the image) keeps its login and settings there too.
+CLAUDE_INSTALLER=https://claude.ai/install.sh
+
+local_is_volume() { grep -q " $HOME/.local " /proc/self/mountinfo 2>/dev/null; }
+need_claude() {
+  command -v claude > /dev/null || die "Claude Code is not installed in this container: qpdemo agent setup (see qpdemo agent)"
+}
+
+cmd_agent_help() {
+  local st
+  st=$(command -v claude > /dev/null && claude --version 2>/dev/null || echo "Claude Code not installed")
+  st="$st; $(local_is_volume && echo "~/.local is a volume" || echo "~/.local is not a volume")"
+  cat <<EOF
+An AI agent can write the proof.  Whatever it writes, qp verify decides: the theorem must be the one generated
+from your property, nothing may be admitted, and only the standard axioms and VST's malloc library may be used.
+No agent is included in this image: you bring your own, with your own subscription or API key.  There are
+three ways.
+
+(a) Claude Code inside this container.  Keep it on a volume, so that it stays installed and signed in:
+      alias qpdemo='docker run -it --rm -v quickproof-agent:/home/opam/.local -v "\$PWD:/work" ghcr.io/genproof/quickproof'
+      qpdemo agent setup       download Claude Code from Anthropic (asks first; --yes skips the question)
+      qpdemo agent login       sign in with your Claude subscription: open a URL, paste back a code
+    Instead of the login you can pass a credential: -e ANTHROPIC_API_KEY, or -e CLAUDE_CODE_OAUTH_TOKEN (the
+    token that \`claude setup-token\` prints).  Then
+      qpdemo prove NAME [--budget-turns N] [--model M] [--budget-usd X]
+    runs Claude Code without questions (claude -p) in NAME-proof/, with AGENTS.md as its brief.  It may edit
+    files under src/, use the MCP server rocq and the qpdemo commands, nothing else.  qp verify judges after
+    every round; the run ends at PASS or when the budget is used up.
+
+(b) Your own agent on the host (Claude Code, Codex CLI, Cursor, any MCP client).  Keep a container running with
+    your work directory mounted at the same path, so that paths agree on both sides:
+      docker run -d --name quickproof -v "\$PWD:\$PWD" -e QP_WORK="\$PWD" -w "\$PWD" ghcr.io/genproof/quickproof serve
+    The MCP server (stdio) is  docker exec -i quickproof rocq-mcp,  for example
+      claude mcp add rocq -- docker exec -i quickproof rocq-mcp
+    and the commands are  docker exec quickproof qpdemo build NAME  and  docker exec quickproof qpdemo verify NAME.
+    The agent edits the files on the host; AGENTS.md in NAME-proof/ is its brief.
+
+(c) By hand, in VS Code with coq-lsp: the dev container of /opt/quickproof/docker/devcontainer/devcontainer.json
+    (docs/DOCKER.md in the QuickProof repository).
+
+Here: $st.
+EOF
+}
+
+cmd_agent_setup() {
+  local yes=0
+  case "${1:-}" in --yes|-y) yes=1 ;; '') ;; *) die "usage: qpdemo agent setup [--yes]" ;; esac
+  cat <<EOF
+Claude Code is Anthropic's coding agent and is not part of this image.  This command downloads it from
+Anthropic, with Anthropic's official installer:
+
+    curl -fsSL $CLAUDE_INSTALLER | bash
+
+It installs into $HOME/.local/ in this container: the program in .local/bin and .local/share/claude, its
+settings and login in .local/claude.  Claude Code is Anthropic's software and is used under Anthropic's terms.
+Running it needs a Claude subscription or an Anthropic API key.
+EOF
+  if ! local_is_volume; then
+    say ""
+    say "${BAD}Note${N}: $HOME/.local is not a volume, so the installation goes away with this container."
+    say "Run this with  -v quickproof-agent:/home/opam/.local  to keep it (qpdemo agent explains)."
+  fi
+  if [ $yes = 0 ]; then
+    [ -t 0 ] || die "this needs your confirmation: run it with docker run -it, or add --yes"
+    local a; read -r -p "Download and install Claude Code from Anthropic now? [y/N] " a
+    case $a in y|Y|yes|Yes) ;; *) say "nothing installed"; return 1 ;; esac
+  fi
+  curl -fsSL "$CLAUDE_INSTALLER" | bash
+  hash -r
+  command -v claude > /dev/null || die "the installer did not put claude into $HOME/.local/bin"
+  claude mcp remove --scope user rocq > /dev/null 2>&1 || true
+  claude mcp add --scope user rocq -- rocq-mcp > /dev/null
+  hdr "installed: $(claude --version)"
+  say "registered for it: the MCP server rocq (rocq-mcp in this image)"
+  say "next: qpdemo agent login (or pass -e ANTHROPIC_API_KEY or -e CLAUDE_CODE_OAUTH_TOKEN), then qpdemo prove NAME"
+}
+
+cmd_agent_login() {
+  need_claude
+  if [ -n "${ANTHROPIC_API_KEY:-}" ] || [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    say "A credential is set in the environment (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN): no login needed."
+    claude auth status --text || true
+    return 0
+  fi
+  [ -t 0 ] || die "the login is interactive: run it with docker run -it"
+  cat <<EOF
+Sign in with your Claude account.  Claude Code prints a URL: open it in a browser on any machine, sign in and
+approve.  The browser cannot reach this container, so the page then shows a code: paste it here, at the prompt
+"Paste code here if prompted".  The login is kept in $CLAUDE_CONFIG_DIR, on the volume.
+EOF
+  claude auth login "$@"
+  claude auth status --text || true
+}
+
+cmd_agent_status() {
+  need_claude
+  say "$(claude --version)   ($(readlink -f "$(command -v claude)"))"
+  if local_is_volume; then say "$HOME/.local is a volume: the installation and the login stay"
+  else say "$HOME/.local is not a volume: the installation goes away with this container"; fi
+  claude auth status --text || true
+  claude mcp list 2>/dev/null | grep -i '^rocq' || say "MCP server rocq: not registered (qpdemo agent setup registers it)"
+}
+
+cmd_agent() {
+  case "${1:-help}" in
+    setup) shift; cmd_agent_setup "$@" ;;
+    login) shift; cmd_agent_login "$@" ;;
+    status) cmd_agent_status ;;
+    help|-h|--help) cmd_agent_help ;;
+    *) die "usage: qpdemo agent [setup [--yes] | login | status]" ;;
+  esac
+}
+
+cmd_prove() {
+  case "${1:-}" in
+    ''|-h|--help) exec python3 "$Q/prove.py" --help ;;
+  esac
+  need_claude
+  exec python3 "$Q/prove.py" --work "$W" "$@"
+}
+
+cmd_serve() {
+  cat <<EOF
+QuickProof container, kept running for an agent outside it (docker stop ends it).
+Work directory: $W  (QP_WORK)
+MCP server for your agent (stdio):   docker exec -i <container> rocq-mcp
+Build and check from outside:        docker exec <container> qpdemo build NAME
+                                     docker exec <container> qpdemo verify NAME
+EOF
+  trap 'exit 0' TERM INT
+  while :; do sleep 3600 & wait $! || true; done
+}
+
+case "${1:-help}" in
+  help|-h|--help) usage ;;
+  list) cmd_list ;;
+  show) shift; cmd_show "$@" ;;
+  verify) shift; cmd_verify "$@" ;;
+  bug) cmd_bug ;;
+  new) shift; cmd_new "$@" ;;
+  check) shift; cmd_check "$@" ;;
+  contract) shift; cmd_contract "$@" ;;
+  build) shift; cmd_build "$@" ;;
+  agent) shift; cmd_agent "$@" ;;
+  prove) shift; cmd_prove "$@" ;;
+  serve) cmd_serve ;;
+  *) exec "$@" ;;
+esac

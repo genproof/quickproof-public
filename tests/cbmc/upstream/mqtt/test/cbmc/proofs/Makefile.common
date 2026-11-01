@@ -1,0 +1,7 @@
+# A small Makefile.common in the style of the cbmc-starter-kit, written for tests/qp/cbmc.sh.
+sinclude $(PROOF_ROOT)/Makefile-project-defines
+sinclude $(PROOF_ROOT)/Makefile-template-defines
+CBMC_FLAG_CONVERSION_CHECK ?= --conversion-check
+CBMC_FLAG_UNSIGNED_OVERFLOW_CHECK ?= --unsigned-overflow-check
+CHECKFLAGS += $(CBMC_FLAG_CONVERSION_CHECK)
+CHECKFLAGS += $(CBMC_FLAG_UNSIGNED_OVERFLOW_CHECK)

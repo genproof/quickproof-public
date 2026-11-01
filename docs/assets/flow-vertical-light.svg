@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 870" width="760" height="870" role="img" aria-labelledby="qp-flow-title qp-flow-desc" font-family="'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace">
+<title id="qp-flow-title">How QuickProof works</title>
+<desc id="qp-flow-desc">A spec in C states a property; it runs with the library's source under sanitizers, CompCert's interpreter and mutants. QuickProof turns it into one Coq theorem, which through VST's adequacy theorem (its instance for QuickProof's environment is upcoming) says that no run has undefined behaviour. AI agents write the proof and Coq checks it; qp verify checks it again from a fresh clone. A failed check or a false property gives a counterexample, an input that breaks it; otherwise the result is a theorem for every input the spec allows.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8a8d93"/></marker><marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#b42318"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#12703f"/></marker></defs>
+<rect x="24" y="24" width="470" height="112" rx="10" fill="#f7f7f5" stroke="#cfcfca"/>
+<circle cx="48" cy="49" r="12" fill="#e8f3ec"/>
+<text x="48" y="54" font-size="13" font-weight="700" fill="#12703f" text-anchor="middle">1</text>
+<text x="70" y="54" font-size="15" font-weight="700" fill="#171717" text-anchor="start">A spec in C</text>
+<text x="42" y="80" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">a small C program you can run: nondet_*() inputs,</text>
+<text x="42" y="99" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">qp_assume() narrows them, qp_assert() checks; or</text>
+<text x="42" y="118" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">turn libFuzzer, AFL++, CBMC, SV-COMP harnesses into specs</text>
+<path d="M259.0 136V162" fill="none" stroke="#8a8d93" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="24" y="166" width="470" height="112" rx="10" fill="#f7f7f5" stroke="#cfcfca"/>
+<circle cx="48" cy="191" r="12" fill="#e8f3ec"/>
+<text x="48" y="196" font-size="13" font-weight="700" fill="#12703f" text-anchor="middle">2</text>
+<text x="70" y="196" font-size="15" font-weight="700" fill="#171717" text-anchor="start">The real code</text>
+<text x="42" y="222" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">the library's source, built with the flags the project</text>
+<text x="42" y="241" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">states, for 64-bit x86 Linux; small rewrites the tools</text>
+<text x="42" y="260" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">need are listed and tested against the original</text>
+<path d="M259.0 278V304" fill="none" stroke="#8a8d93" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="24" y="308" width="470" height="112" rx="10" fill="#f7f7f5" stroke="#cfcfca"/>
+<circle cx="48" cy="333" r="12" fill="#e8f3ec"/>
+<text x="48" y="338" font-size="13" font-weight="700" fill="#12703f" text-anchor="middle">3</text>
+<text x="70" y="338" font-size="15" font-weight="700" fill="#171717" text-anchor="start">Tested first</text>
+<text x="42" y="364" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">native runs under ASan and UBSan and CompCert's</text>
+<text x="42" y="383" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">interpreter look for inputs that break the spec;</text>
+<text x="42" y="402" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">mutants check that the spec catches broken code</text>
+<path d="M259.0 420V446" fill="none" stroke="#8a8d93" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="24" y="450" width="470" height="112" rx="10" fill="#f7f7f5" stroke="#cfcfca"/>
+<circle cx="48" cy="475" r="12" fill="#e8f3ec"/>
+<text x="48" y="480" font-size="13" font-weight="700" fill="#12703f" text-anchor="middle">4</text>
+<text x="70" y="480" font-size="15" font-weight="700" fill="#171717" text-anchor="start">One theorem</text>
+<text x="42" y="506" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">one Coq theorem, fixed before any proof: no run has</text>
+<text x="42" y="525" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">undefined behaviour, by VST's adequacy theorem (its</text>
+<text x="42" y="544" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">instance for QuickProof's environment is upcoming)</text>
+<path d="M259.0 562V588" fill="none" stroke="#8a8d93" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="24" y="592" width="470" height="112" rx="10" fill="#f7f7f5" stroke="#cfcfca"/>
+<circle cx="48" cy="617" r="12" fill="#e8f3ec"/>
+<text x="48" y="622" font-size="13" font-weight="700" fill="#12703f" text-anchor="middle">5</text>
+<text x="70" y="622" font-size="15" font-weight="700" fill="#171717" text-anchor="start">AI agents prove it</text>
+<text x="42" y="648" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">your AI agents write the Coq proof, Coq checks every</text>
+<text x="42" y="667" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">step. Nothing the agents write is trusted.</text>
+<path d="M259.0 704V730" fill="none" stroke="#8a8d93" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="24" y="734" width="470" height="112" rx="10" fill="#f7f7f5" stroke="#cfcfca"/>
+<circle cx="48" cy="759" r="12" fill="#e8f3ec"/>
+<text x="48" y="764" font-size="13" font-weight="700" fill="#12703f" text-anchor="middle">6</text>
+<text x="70" y="764" font-size="15" font-weight="700" fill="#171717" text-anchor="start">qp verify</text>
+<text x="42" y="790" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">rebuilds it from a fresh clone, compares every</text>
+<text x="42" y="809" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">statement with the fixed one, refuses Admitted</text>
+<text x="42" y="828" font-size="12.5" font-weight="400" fill="#5c5f66" text-anchor="start">and any axiom outside a short list</text>
+<rect x="540" y="328" width="196" height="234" rx="10" fill="#fdf0ef" stroke="#b42318" stroke-width="1.5"/>
+<text x="558" y="359" font-size="15" font-weight="700" fill="#b42318">Counterexample</text>
+<text x="558" y="386" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">an input that breaks</text>
+<text x="558" y="405" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">the property.</text>
+<text x="558" y="443" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">It shows a bug, a</text>
+<text x="558" y="462" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">docs gap or a spec</text>
+<text x="558" y="481" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">mistake. Bugs go to</text>
+<text x="558" y="500" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">maintainers first.</text>
+<path d="M494 364.0H536" fill="none" stroke="#b42318" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ab)"/>
+<text x="517.0" y="356.0" font-size="12" font-weight="400" fill="#b42318" text-anchor="middle">fails</text>
+<path d="M494 648.0H638.0V566" fill="none" stroke="#b42318" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ab)"/>
+<text x="504" y="668.0" font-size="12" font-weight="400" fill="#b42318" text-anchor="start">the property is false</text>
+<rect x="540" y="726" width="196" height="128" rx="10" fill="#eef7f1" stroke="#12703f" stroke-width="1.5"/>
+<text x="558" y="757" font-size="15" font-weight="700" fill="#12703f">Proved</text>
+<text x="558" y="784" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">a theorem about the</text>
+<text x="558" y="803" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">code, for every input</text>
+<text x="558" y="822" font-size="12.5" font-weight="400" fill="#171717" text-anchor="start">the spec allows.</text>
+<path d="M494 790.0H536" fill="none" stroke="#12703f" stroke-width="1.6" marker-end="url(#ao)"/>
+</svg>

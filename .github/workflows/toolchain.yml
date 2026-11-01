@@ -1,0 +1,98 @@
+# Builds the toolchain image (docker/toolchain.Dockerfile) and pushes it to the GitHub Container Registry, as a
+# private package of the organisation, linked to this repository:
+#   ghcr.io/genproof/quickproof-toolchain:8.20.1      target toolchain: Coq, CompCert, VST, coq-lsp
+#   ghcr.io/genproof/quickproof-toolchain:8.20.1-ci   target ci: the same, with clang; ci.yml runs in it
+# The build takes one to two hours on a hosted runner.  It runs by hand, or when the Dockerfile or this file
+# changes on release, and it is skipped when the registry already has an image of the same Dockerfile (the tag
+# src-<hash of the Dockerfile>), unless it is run by hand with "force".  It runs on ubuntu-latest, or on the
+# runners whose labels the repository variable QP_RUNS_ON lists as JSON, e.g. ["self-hosted", "linux", "x64"]
+# (Linux with Docker).  The checkout goes to src/: on a self-hosted runner the container jobs of ci.yml leave
+# files owned by root in the workspace, which a checkout outside a container could not clean.
+name: toolchain
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if the registry has an image of this Dockerfile
+        type: boolean
+        default: false
+  push:
+    branches: [release]
+    paths:
+      - docker/toolchain.Dockerfile
+      - .github/workflows/toolchain.yml
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: toolchain
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/genproof/quickproof-toolchain
+  VERSION: 8.20.1
+
+jobs:
+  build:
+    runs-on: ${{ fromJSON(vars.QP_RUNS_ON || '["ubuntu-latest"]') }}
+    timeout-minutes: 300
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Log in to ghcr.io
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Is this Dockerfile built already?
+        id: src
+        run: |
+          src=src-$(sha256sum docker/toolchain.Dockerfile | cut -c1-12)
+          echo "tag=$src" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.force }}" != true ] && docker manifest inspect "$IMAGE:$src" > /dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "$IMAGE:$src exists: nothing to build (run by hand with force to rebuild)" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Free disk space (the opam stage needs about 12 GB)
+        if: steps.src.outputs.skip != 'true' && runner.environment == 'github-hosted'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Build
+        if: steps.src.outputs.skip != 'true'
+        run: |
+          for target in toolchain ci; do
+            tag=$VERSION; [ "$target" = toolchain ] || tag=$VERSION-$target
+            docker build -f docker/toolchain.Dockerfile --target "$target" --build-arg JOBS="$(nproc)" \
+              --label org.opencontainers.image.source="${{ github.server_url }}/${{ github.repository }}" \
+              -t "$IMAGE:$tag" docker
+          done
+          docker run --rm "$IMAGE:$VERSION-ci" sh -c 'coqc --version && ccomp -version && clang --version | head -1'
+          docker images "$IMAGE"
+
+      - name: Push
+        if: steps.src.outputs.skip != 'true'
+        run: |
+          docker tag "$IMAGE:$VERSION-ci" "$IMAGE:${{ steps.src.outputs.tag }}"
+          for tag in "$VERSION" "$VERSION-ci" "${{ steps.src.outputs.tag }}"; do docker push -q "$IMAGE:$tag"; done
+          echo "pushed $IMAGE: $VERSION, $VERSION-ci, ${{ steps.src.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: The package is private (an anonymous pull is refused)
+        run: |
+          repo=${IMAGE#ghcr.io/}
+          token=$(curl -s "https://ghcr.io/token?scope=repository:$repo:pull" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" \
+                 -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+                 "https://ghcr.io/v2/$repo/manifests/$VERSION")
+          echo "anonymous pull of $IMAGE:$VERSION: HTTP $code"
+          [ "$code" != 200 ] || { echo "::error::$IMAGE is public: make the package private in its settings"; exit 1; }

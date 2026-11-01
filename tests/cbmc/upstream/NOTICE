@@ -1,0 +1,20 @@
+tests/cbmc/upstream: the toy upstream of tests/qp/cbmc.sh (the tests of `tools/qp import-cbmc`).
+
+toy/ is written for these tests.
+
+mqtt/ and aws/ mix small excerpts of public CBMC proofs, kept as they are so that the importer is tested on
+real harness text, with stand-ins written for these tests (each stand-in says so in its first comment). The
+stand-ins are not the projects' code.
+
+Excerpts from FreeRTOS/coreMQTT, commit b7741e33f6a4cdc53bc680b2f50cbd6a2426dcba, MIT License
+(Copyright (C) 2020 Amazon.com, Inc. or its affiliates; the license text is in the header of the harness file):
+  mqtt/test/cbmc/proofs/MQTT_MatchTopic/MQTT_MatchTopic_harness.c   unchanged
+  mqtt/test/cbmc/proofs/MQTT_MatchTopic/Makefile                    unchanged
+  mqtt/test/cbmc/proofs/Makefile-project-defines                    unchanged
+
+Excerpts from awslabs/aws-c-common, commit 2a29f7ea85397ff15e41ae086fb3662484fd305d, Apache License 2.0
+(Copyright Amazon.com, Inc. or its affiliates; the license text is tests/LICENSE-Apache-2.0.txt):
+  aws/verification/cbmc/proofs/aws_add_size_checked/aws_add_size_checked_harness.c   a notice line added
+  aws/verification/cbmc/proofs/aws_add_size_checked/Makefile                          unchanged
+  aws/verification/cbmc/proofs/Makefile-project-defines                               unchanged
+  aws/verification/cbmc/stubs/abort_override_assert_false.c                           unchanged

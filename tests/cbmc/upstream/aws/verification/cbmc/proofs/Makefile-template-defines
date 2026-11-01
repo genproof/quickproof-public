@@ -1,0 +1,2 @@
+# The cbmc-starter-kit's definition, written for tests/qp/cbmc.sh.
+SRCDIR ?= $(abspath $(PROOF_ROOT)/../../..)

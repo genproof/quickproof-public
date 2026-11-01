@@ -1,0 +1,10 @@
+# tools/site.conf (or the file named by $QP_SITE_CONF): this machine's settings for tools/qp, KEY=VALUE, one per
+# line (`#` starts a comment, `~` is expanded).  Every key is optional, and the environment overrides the file.
+# Copy this file to tools/site.conf (ignored by git) and keep the lines you need.
+QP_WORKSPACE=                     # the directory that holds projects/ (default: --workspace, or found from the cwd)
+QP_CACHE=~/.cache/quickproof      # upstream clones, framework commits, trees, verification clones
+QP_OPAM_SWITCH=                   # an opam switch with Coq 8.20.1, VST 2.15, CompCert 3.15 (default: the toolchain in PATH)
+QP_FRAMEWORK_URL=https://github.com/genproof/quickproof-public.git   # recorded as the submodule URL; fetched for pins not found locally
+QP_FRAMEWORK_DIR=                 # a local framework checkout used instead of the pinned commit (framework development)
+QP_TEMPLATES=                     # a template directory that qp assemble copies into proof repositories (default: none)
+QP_JOBS=                          # parallel jobs of Coq builds and native runs (default: half and a quarter of the CPUs)

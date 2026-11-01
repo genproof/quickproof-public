@@ -1,0 +1,27 @@
+name: Request a library or a property to verify
+description: C code you would like to see proved, and the property it should have.
+labels: [enhancement]
+body:
+  - type: input
+    id: library
+    attributes:
+      label: Library
+      description: The name, the repository and the version or commit.
+      placeholder: zlib 1.3.1, https://github.com/madler/zlib
+    validations:
+      required: true
+  - type: textarea
+    id: property
+    attributes:
+      label: The property
+      description: |
+        The property in a sentence or two, or as a harness: which functions it calls and what it asserts
+        (docs/HARNESSES.md). If the library has libFuzzer targets or CBMC proof harnesses, say which ones;
+        qp can import them.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: Who uses this code, and what a proof would rule out.

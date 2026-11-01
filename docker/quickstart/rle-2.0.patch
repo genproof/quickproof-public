@@ -1,0 +1,15 @@
+rle 2.0: a "simpler loop" in rle_decode, which reads one byte past the input when its length is odd.
+make-examples.sh applies this to examples/rle/rle.c for the bug scene of qpdemo (qpdemo bug).
+
+diff --git a/rle.c b/rle.c
+--- a/rle.c
++++ b/rle.c
+@@ -4,7 +4,7 @@
+ size_t rle_decode(const uint8_t *in, size_t n, uint8_t *out, size_t cap)
+ {
+ 	size_t i = 0, m = 0;
+-	while (n - i >= 2) {
++	while (i < n) {
+ 		size_t count = in[i];
+ 		uint8_t byte = in[i + 1];
+ 		if (count > cap - m)

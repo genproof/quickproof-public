@@ -1,0 +1,7 @@
+LINK=per-law
+law_count: 2 of 4 library units (computed): src/counter src/log
+  not linked: src/pair src/big
+  declared, defined by no unit (externals outside the environment): __builtin_debug
+law_pair: 3 of 4 library units (computed): src/counter src/log src/pair
+  not linked: src/big
+  declared, defined by no unit (externals outside the environment): __builtin_debug

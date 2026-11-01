@@ -1,0 +1,12 @@
+format_version: '2.0'
+
+# A test task of tools/qp import-svcomp (tests/qp/svcomp.sh).
+input_files: 'refuse-argv.c'
+
+properties:
+  - property_file: ../properties/unreach-call.prp
+    expected_verdict: true
+
+options:
+  language: C
+  data_model: LP64

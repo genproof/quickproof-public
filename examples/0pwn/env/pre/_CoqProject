@@ -1,0 +1,11 @@
+# qp reads this file as flags and paths; a line not starting with `-` is taken for a file name, and a word
+# ending in a plugin extension is refused.  coq_makefile reads it as a makefile fragment, where `NAME = value`
+# assigns a variable, and qp's coqproject_problems() does not look at assignment lines at all.
+# coq_makefile writes `COQLIBS := $(COQMF_COQLIBS)` into CoqMakefile and uses $(COQLIBS) unquoted in the coqc
+# recipe.  The value is one whitespace-free word (coq_makefile splits it into arguments otherwise), so the
+# recipe becomes:  coqc ... x.v;./pwn.sh;true x.v  -- coqc compiles x.v, ./pwn.sh runs, `true x.v` supplies
+# the trailing $< and keeps make's exit status 0.  This directory is in the contract commit (env/ is a project
+# directory `qp assemble` copies), so qp verify builds it in its run/prebuild step before the main build.
+COQMF_COQLIBS = x.v;./pwn.sh;true
+
+x.v
